@@ -15,16 +15,33 @@ The script provides a user-friendly interface, allowing users to choose specific
 ## Requirements
 - **Python** 3.8 or above
 - **OpenCV** (`opencv-python`)
-- **PyTorch**
+- **PyTorch** (with CUDA support for GPU acceleration)
 - **Ultralytics YOLO library** (`ultralytics`)
+- **CUDA Toolkit** (required for GPU acceleration)
+
+### CUDA Installation
+To use GPU acceleration, you must have the CUDA Toolkit installed. Below are the steps to install CUDA:
+
+1. **Download CUDA Toolkit**:
+   - Visit the [NVIDIA CUDA Toolkit download page](https://developer.nvidia.com/cuda-downloads).
+   - Choose the version compatible with your system and follow the installation instructions.
+
+2. **Install the Correct Version of PyTorch**:
+   - Visit the [PyTorch Get Started page](https://pytorch.org/get-started/locally/).
+   - Select the CUDA version that matches your installed CUDA Toolkit, and copy the installation command.
+   - Example installation command:
+     ```sh
+     pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117
+     ```
+   - Replace `cu117` with the appropriate version based on your CUDA installation.
 
 ## Installation
 
 ### Step 1: Clone the Repository
 Clone this repository to your local machine:
 ```sh
-git clone [repository-url]
-cd [repository-name]
+git clone https://github.com/your-github-username/yolov8-usb-camera-detection.git
+cd yolov8-usb-camera-detection
 ```
 
 ### Step 2: Create a Virtual Environment (Recommended)
@@ -106,7 +123,7 @@ python detect.py
 
 ## Available Classes
 The following classes are available for detection in YOLOv8:
-- person, bicycle, car, motorcycle, airplane, bus, train, truck, boat, traffic light, fire hydrant, stop sign, parking meter, bench, bird, cat, dog, horse, sheep, cow, elephant, bear, zebra, giraffe, backpack, umbrella, handbag, tie, suitcase, frisbee, skis, snowboard, sports ball, kite, baseball bat, baseball glove, skateboard, surfboard, tennis racket, bottle, wine glass, cup, fork, knife, spoon, bowl, banana, apple, sandwich, orange, broccoli, carrot, hot dog, pizza, donut, cake, chair, couch, potted plant, bed, dining table, toilet, tv, laptop, mouse, remote, keyboard, cell phone, microwave, oven, toaster, sink, refrigerator, book, clock, vase, scissors, teddy bear, hair drier, toothbrush.
+- `person`, `bicycle`, `car`, `motorcycle`, `airplane`, `bus`, `train`, `truck`, `boat`, `traffic light`, `fire hydrant`, `stop sign`, `parking meter`, `bench`, `bird`, `cat`, `dog`, `horse`, `sheep`, `cow`, `elephant`, `bear`, `zebra`, `giraffe`, `backpack`, `umbrella`, `handbag`, `tie`, `suitcase`, `frisbee`, `skis`, `snowboard`, `sports ball`, `kite`, `baseball bat`, `baseball glove`, `skateboard`, `surfboard`, `tennis racket`, `bottle`, `wine glass`, `cup`, `fork`, `knife`, `spoon`, `bowl`, `banana`, `apple`, `sandwich`, `orange`, `broccoli`, `carrot`, `hot dog`, `pizza`, `donut`, `cake`, `chair`, `couch`, `potted plant`, `bed`, `dining table`, `toilet`, `tv`, `laptop`, `mouse`, `remote`, `keyboard`, `cell phone`, `microwave`, `oven`, `toaster`, `sink`, `refrigerator`, `book`, `clock`, `vase`, `scissors`, `teddy bear`, `hair drier`, `toothbrush`
 
 ## Script Overview
 - **Clear Screen**: The script starts by clearing the console screen for a clean view.
@@ -119,16 +136,16 @@ The following classes are available for detection in YOLOv8:
    - Verify that the camera is not being used by another application.
 
 2. **Model Download Issues**:
-   - If the model weights file fails to download, manually download `yolov8x.pt` from the [Ultralytics GitHub releases page](https://github.com/ultralytics/yolov5/releases) and place it in the same directory as the script.
+   - If the model weights file fails to download, manually download `yolov8x.pt` from the [Ultralytics GitHub releases page](https://github.com/ultralytics/assets/releases) and place it in the same directory as the script.
 
 3. **CUDA Not Available**:
-   - If CUDA is not detected, the script will default to CPU for inference. Ensure you have installed the correct version of PyTorch with GPU support.
+   - If CUDA is not detected, the script will default to CPU for inference. Ensure you have installed the correct version of PyTorch with GPU support as described above.
 
 ## License
 This project is licensed under the MIT License. See the LICENSE file for more details.
 
 ## Acknowledgments
-- **[Ultralytics YOLO](https://github.com/ultralytics/yolov5)** for providing the YOLOv8 model.
+- **[Ultralytics YOLO](https://github.com/ultralytics/ultralytics)** for providing the YOLOv8 model.
 - **OpenCV** for real-time image processing.
 - **PyTorch** for enabling deep learning model inference.
 
