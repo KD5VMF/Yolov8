@@ -191,6 +191,6 @@ This project is licensed under the MIT License. See the LICENSE file for more de
 - **PyTorch** for enabling deep learning model inference.
 
 ## Author
-[Your Name]
+ChatGTP 4o
 
 Feel free to reach out for any questions or contributions to improve this project further.
