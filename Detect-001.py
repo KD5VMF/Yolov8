@@ -1,7 +1,7 @@
 """
 Title: YOLOv8 Real-Time Object Detection using USB Camera
-Author: [Your Name]
-Date: [Today's Date]
+Author: ChatGTP 4o
+Date: 10/5/2024
 
 About:
 This script demonstrates real-time object detection using the YOLOv8 model with a USB camera.
