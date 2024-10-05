@@ -19,14 +19,80 @@ The script provides a user-friendly interface, allowing users to choose specific
 - **Ultralytics YOLO library** (`ultralytics`)
 - **CUDA Toolkit** (required for GPU acceleration)
 
-### CUDA Installation
-To use GPU acceleration, you must have the CUDA Toolkit installed. Below are the steps to install CUDA:
+## CUDA Installation
 
+### Windows 11
 1. **Download CUDA Toolkit**:
    - Visit the [NVIDIA CUDA Toolkit download page](https://developer.nvidia.com/cuda-downloads).
-   - Choose the version compatible with your system and follow the installation instructions.
+   - Select your operating system as "Windows" and version as "Windows 11".
+   - Choose the installer (e.g., `exe` file) and follow the installation instructions to install CUDA and the appropriate drivers.
 
-2. **Install the Correct Version of PyTorch**:
+2. **Install cuDNN**:
+   - Visit the [NVIDIA cuDNN page](https://developer.nvidia.com/cudnn) and download the cuDNN library that matches your CUDA version.
+   - Extract the contents and copy the `bin`, `include`, and `lib` directories into your CUDA Toolkit installation path (e.g., `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\vXX.X`).
+
+3. **Verify CUDA Installation**:
+   - Open a command prompt and run:
+     ```sh
+     nvcc --version
+     ```
+   - This should display the version of CUDA installed.
+
+4. **Install the Correct Version of PyTorch**:
+   - Visit the [PyTorch Get Started page](https://pytorch.org/get-started/locally/).
+   - Select the CUDA version that matches your installed CUDA Toolkit, and copy the installation command.
+   - Example installation command:
+     ```sh
+     pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117
+     ```
+   - Replace `cu117` with the appropriate version based on your CUDA installation.
+
+### Ubuntu (Latest Version)
+1. **Update System Packages**:
+   - Open a terminal and run:
+     ```sh
+     sudo apt update
+     sudo apt upgrade
+     ```
+
+2. **Install CUDA Toolkit**:
+   - Visit the [NVIDIA CUDA Toolkit download page](https://developer.nvidia.com/cuda-downloads).
+   - Select your operating system as "Linux" and version as "Ubuntu".
+   - Follow the instructions provided for adding the NVIDIA package repository and installing CUDA.
+
+   Example commands for installing CUDA on Ubuntu:
+   ```sh
+   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -sr | tr -d '.')/x86_64/cuda-ubuntu$(lsb_release -sr | tr -d '.').pin
+   sudo mv cuda-ubuntu$(lsb_release -sr | tr -d '.').pin /etc/apt/preferences.d/cuda-repository-pin-600
+   sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -sr | tr -d '.')/x86_64/7fa2af80.pub
+   sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu$(lsb_release -sr | tr -d '.')/x86_64/ /"
+   sudo apt update
+   sudo apt install -y cuda
+   ```
+
+3. **Install cuDNN**:
+   - Visit the [NVIDIA cuDNN page](https://developer.nvidia.com/cudnn) and download the cuDNN library that matches your CUDA version.
+   - Extract the downloaded file and copy the `lib`, `include`, and `bin` directories to your `/usr/local/cuda/` directory.
+
+4. **Set Up Environment Variables**:
+   - Add the following lines to your `.bashrc` file:
+     ```sh
+     export PATH=/usr/local/cuda/bin:$PATH
+     export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+     ```
+   - Save the file and update your terminal:
+     ```sh
+     source ~/.bashrc
+     ```
+
+5. **Verify CUDA Installation**:
+   - Run:
+     ```sh
+     nvcc --version
+     ```
+   - This should display the version of CUDA installed.
+
+6. **Install the Correct Version of PyTorch**:
    - Visit the [PyTorch Get Started page](https://pytorch.org/get-started/locally/).
    - Select the CUDA version that matches your installed CUDA Toolkit, and copy the installation command.
    - Example installation command:
@@ -104,31 +170,6 @@ python detect.py
 - The labels and confidence scores for each detected object will also be displayed.
 
 - Press the `q` key to exit the real-time object detection.
-
-## How It Works
-1. **Model Loading**:
-   - The script checks if the YOLOv8 model weights file (`yolov8x.pt`) is present in the current directory.
-   - If not found, it automatically downloads the model from the official URL.
-
-2. **Class Selection**:
-   - After loading the model, the script displays a list of 80 available classes in a well-formatted layout.
-   - Users can select specific classes to focus on during detection.
-
-3. **Real-Time Detection**:
-   - The USB camera captures frames, which are processed by YOLOv8 to detect objects.
-   - Detected objects are annotated with bounding boxes, labels, and confidence scores.
-
-4. **GPU Acceleration**:
-   - If CUDA is available, the script uses GPU for inference to provide faster performance.
-
-## Available Classes
-The following classes are available for detection in YOLOv8:
-- `person`, `bicycle`, `car`, `motorcycle`, `airplane`, `bus`, `train`, `truck`, `boat`, `traffic light`, `fire hydrant`, `stop sign`, `parking meter`, `bench`, `bird`, `cat`, `dog`, `horse`, `sheep`, `cow`, `elephant`, `bear`, `zebra`, `giraffe`, `backpack`, `umbrella`, `handbag`, `tie`, `suitcase`, `frisbee`, `skis`, `snowboard`, `sports ball`, `kite`, `baseball bat`, `baseball glove`, `skateboard`, `surfboard`, `tennis racket`, `bottle`, `wine glass`, `cup`, `fork`, `knife`, `spoon`, `bowl`, `banana`,...
-
-## Script Overview
-- **Clear Screen**: The script starts by clearing the console screen for a clean view.
-- **Class List Display**: Available classes are displayed in a multi-column format, making it easy for users to read.
-- **Real-Time Detection**: Using OpenCV and YOLOv8, the script processes the camera feed and annotates detected objects.
 
 ## Troubleshooting
 1. **Camera Not Opening**:
