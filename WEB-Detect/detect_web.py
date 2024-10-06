@@ -9,6 +9,9 @@ Instead of displaying the output using OpenCV windows, it hosts a web server to 
 detection results live, making it suitable for use on headless servers. The web server is built 
 using Flask, allowing easy access from any device on the network.
 
+Users can select which object classes to detect, and there is a mechanism to stop the video stream
+either by the user or by detecting if the viewer has left.
+
 Requirements:
 - Python 3.8 or above
 - OpenCV
@@ -22,11 +25,21 @@ import warnings
 import torch
 import cv2
 import numpy as np
-from flask import Flask, Response, render_template_string
+from flask import Flask, Response, render_template_string, request, redirect, url_for
 from ultralytics import YOLO
 import logging
 import os
 import urllib.request
+import threading
+
+try:
+    from screeninfo import get_monitors
+    monitor = get_monitors()[0]
+    screen_width, screen_height = monitor.width, monitor.height
+except (ImportError, Exception):
+    # Default resolution for headless servers
+    screen_width, screen_height = 1280, 720
+    print("No monitor detected. Using default resolution of 1280x720.")
 
 # Hide FutureWarnings
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -66,26 +79,71 @@ if not cap.isOpened():
     print("Error: Could not open video stream from USB camera.")
     exit()
 
+# Selected classes for detection (initially set to None)
+selected_classes = None
+
 # Function to get color for a label based on hash value for consistency
 def get_color(label):
     hash_value = hash(label) % 0xFFFFFF
     return (hash_value & 0xFF, (hash_value >> 8) & 0xFF, (hash_value >> 16) & 0xFF)
 
-# Flask route to render the main page
-@app.route('/')
+# Flask route to render the selection page
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    # HTML template for the web interface
+    global selected_classes
+    if request.method == 'POST':
+        user_input = request.form.get('classes')
+        if user_input.lower() == 'all':
+            selected_classes = list(model.names.values())
+        else:
+            try:
+                class_indices = [int(idx) - 1 for idx in user_input.split(",")]
+                selected_classes = [model.names[idx] for idx in class_indices if 0 <= idx < len(model.names)]
+            except ValueError:
+                selected_classes = list(model.names.values())
+
+        return redirect(url_for('video_feed'))
+    
+    # Render selection template
+    available_classes = list(model.names.values())
+    class_list_html = "<table style='width: 100%;'>"
+    columns = 4
+    for i in range(0, len(available_classes), columns):
+        class_list_html += "<tr>"
+        for j in range(columns):
+            if i + j < len(available_classes):
+                class_index = i + j + 1
+                class_name = available_classes[i + j]
+                class_list_html += f"<td style='padding: 10px;'>{class_index:2}. {class_name:<15}</td>"
+        class_list_html += "</tr>"
+    class_list_html += "</table>"
+
     return render_template_string(f"""
     <!doctype html>
     <title>YOLOv8 Real-Time Object Detection</title>
-    <h1>YOLOv8 Real-Time Object Detection Stream</h1>
-    <h3>Using device: {device.upper()}</h3>
-    <img src="/video_feed" width="100%">
-    <p>Press Ctrl+C in the terminal to stop the server.</p>
+    <h1>Select Classes for Detection</h1>
+    <form method="post">
+        <div>
+            {class_list_html}
+        </div>
+        <p>Enter the numbers of the classes you want to detect (comma-separated) or type 'ALL' for all classes:</p>
+        <input type="text" name="classes" required>
+        <button type="submit">Start Detection</button>
+    </form>
     """)
+
+# Flask route to provide the video stream
+@app.route('/video_feed')
+def video_feed():
+    global selected_classes
+    if selected_classes is None:
+        # Redirect to the class selection page if no classes have been selected
+        return redirect(url_for('index'))
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # Video streaming generator function
 def generate():
+    global cap, selected_classes, screen_width, screen_height
     while True:
         # Capture frame from USB camera
         ret, frame = cap.read()
@@ -106,6 +164,10 @@ def generate():
             x1, y1, x2, y2 = map(int, detection.xyxy[0].tolist())
             label = model.names[int(detection.cls)]
             confidence = detection.conf[0].item()
+
+            # Only render if the label is in the selected classes
+            if selected_classes and label not in selected_classes:
+                continue
 
             # Get color for the label
             color = get_color(label)
@@ -132,23 +194,31 @@ def generate():
             # Put the label text on the frame
             cv2.putText(frame, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
+        # Resize the frame to fit the screen dimensions
+        resized_frame = cv2.resize(frame, (screen_width, screen_height))
+
         # Encode the frame for streaming
-        _, jpeg = cv2.imencode('.jpg', frame)
+        _, jpeg = cv2.imencode('.jpg', resized_frame)
         frame_bytes = jpeg.tobytes()
 
         # Yield the frame in the correct format for a live stream
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
 
-# Flask route to provide the video stream
-@app.route('/video_feed')
-def video_feed():
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+# Flask route to stop the server
+@app.route('/stop')
+def stop():
+    shutdown_server()
+    return "Server shutting down..."
+
+def shutdown_server():
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func:
+        func()
 
 # Start the Flask server
 if __name__ == '__main__':
     print("Starting Flask server... Access the video stream at http://localhost:5000")
-    print(f"Using device: {device.upper()}")
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
 
 # Release resources when the script ends
