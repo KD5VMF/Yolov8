@@ -179,7 +179,7 @@ def generate():
             label_text = f'{label}: {confidence:.2f}'
 
             # Determine label size
-            (text_width, text_height), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            (text_width, text_height), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
 
             # Adjust label background position
             label_background_top_left = (x1, y1 - text_height - 10 if y1 - text_height - 10 > 10 else y1 + text_height + 10)
@@ -192,7 +192,22 @@ def generate():
             label_position = (x1, y1 - 5 if y1 - text_height - 10 > 10 else y1 + text_height + 5)
 
             # Put the label text on the frame
-            cv2.putText(frame, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.putText(frame, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+
+        # Add text overlay at the top and bottom
+        overlay_text_top = f"YOLOv8 Real-Time Detection - Device: {device.upper()}"
+        overlay_text_bottom = f"Using Model: {model_name} - Powered by ChatGPT 4o"
+
+        # Add black background for the text
+        frame_height, frame_width, _ = frame.shape
+        top_rect_height = 40
+        bottom_rect_height = 40
+        cv2.rectangle(frame, (0, 0), (frame_width, top_rect_height), (0, 0, 0), -1)
+        cv2.rectangle(frame, (0, frame_height - bottom_rect_height), (frame_width, frame_height), (0, 0, 0), -1)
+
+        # Add text to the top and bottom of the frame
+        cv2.putText(frame, overlay_text_top, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.putText(frame, overlay_text_bottom, (10, frame_height - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
 
         # Resize the frame to fit the screen dimensions
         resized_frame = cv2.resize(frame, (screen_width, screen_height))
