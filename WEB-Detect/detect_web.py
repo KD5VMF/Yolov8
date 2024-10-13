@@ -72,7 +72,14 @@ print(f"Using device: {device.upper()}")
 app = Flask(__name__)
 
 # Initialize USB camera (index 0) with V4L2 backend, suitable for Linux
-cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+#cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+# Initialize USB camera (index 0) without specifying a backend
+
+# Initialize USB camera (index 0) without specifying a backend
+#cap = cv2.VideoCapture(0)
+
+# Initialize USB camera (index 0) with DirectShow backend, suitable for Windows
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
 # Check if the camera was opened successfully
 if not cap.isOpened():
