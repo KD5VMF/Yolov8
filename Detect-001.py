@@ -1,20 +1,15 @@
 """
-Title: YOLOv8 Real-Time Object Detection using USB Camera
+Title: YOLOv8 Real-Time Object Detection using USB Camera with GPU Selection
 Author: ChatGTP 4o
 Date: 10/5/2024
 
 About:
 This script demonstrates real-time object detection using the YOLOv8 model with a USB camera.
+It now allows the user to select which GPU to use if multiple GPUs are available.
 YOLOv8, developed by Ultralytics, is the latest version offering high accuracy and performance
 for a variety of object detection tasks. The script automatically detects whether a GPU is available
 for acceleration and downloads the YOLOv8 model if it is not already present. Users can choose
 which objects to detect by selecting from a list of available classes.
-
-Requirements:
-- Python 3.8 or above
-- OpenCV
-- PyTorch
-- Ultralytics YOLO library
 """
 
 import warnings
@@ -52,6 +47,7 @@ Date: 10/5/2024
 About:
 This script demonstrates real-time object detection using the YOLOv8 model with a USB camera.
 YOLOv8 is the latest model developed by Ultralytics, known for its high accuracy and performance.
+The script now supports multiple GPUs – you can select which GPU to use if more than one is available.
 
 ====================================================
 """)
@@ -72,10 +68,31 @@ download_weights(model_name, model_url)
 print(f"Loading YOLOv8 model '{model_name}'...")
 model = YOLO(model_name)
 
-# Set device to CUDA if available, else CPU
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# Device selection: Check if CUDA is available and allow user to select GPU if more than one is detected.
+if torch.cuda.is_available():
+    num_gpus = torch.cuda.device_count()
+    if num_gpus > 1:
+        print("\nMultiple GPUs detected:")
+        for i in range(num_gpus):
+            print(f"  {i}: {torch.cuda.get_device_name(i)}")
+        gpu_choice = input("Enter the GPU index to use (default 0): ").strip()
+        try:
+            device_index = int(gpu_choice) if gpu_choice != "" else 0
+            if device_index < 0 or device_index >= num_gpus:
+                print("Invalid GPU index. Defaulting to GPU 0.")
+                device_index = 0
+        except ValueError:
+            print("Invalid input. Defaulting to GPU 0.")
+            device_index = 0
+    else:
+        device_index = 0
+    device = f"cuda:{device_index}"
+else:
+    device = "cpu"
+
+# Move model to selected device
 model.to(device)
-print(f"Using device: {device}")
+print(f"\nUsing device: {device}")
 
 # Display list of available classes in a neat aligned format and get user input
 available_classes = list(model.names.values())  # Convert class names to a list
@@ -133,7 +150,7 @@ screen_height = monitor.height
 cv2.namedWindow('YOLOv8 Object Detection', cv2.WINDOW_NORMAL)
 cv2.setWindowProperty('YOLOv8 Object Detection', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-print("Starting object detection... Press 'q' to quit.")
+print("\nStarting object detection... Press 'q' to quit.")
 
 # Main loop for real-time object detection
 while True:
@@ -175,14 +192,17 @@ while True:
         (text_width, text_height), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
 
         # Adjust label background position
-        label_background_top_left = (x1, y1 - text_height - 10 if y1 - text_height - 10 > 10 else y1 + text_height + 10)
-        label_background_bottom_right = (x1 + text_width, y1)
+        if y1 - text_height - 10 > 10:
+            label_background_top_left = (x1, y1 - text_height - 10)
+            label_background_bottom_right = (x1 + text_width, y1)
+            label_position = (x1, y1 - 5)
+        else:
+            label_background_top_left = (x1, y1 + text_height + 10 - text_height - 10)
+            label_background_bottom_right = (x1 + text_width, y1 + text_height + 10)
+            label_position = (x1, y1 + text_height + 5)
 
         # Draw a filled rectangle behind the text for better visibility
         cv2.rectangle(frame, label_background_top_left, label_background_bottom_right, color, -1)
-
-        # Adjust label text position
-        label_position = (x1, y1 - 5 if y1 - text_height - 10 > 10 else y1 + text_height + 5)
 
         # Put the label text on the frame
         cv2.putText(frame, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
