@@ -23,202 +23,196 @@ import os
 import urllib.request
 import platform
 
-# Hide FutureWarnings
 warnings.filterwarnings("ignore", category=FutureWarning)
-
-# Suppress additional YOLO logging output
 logging.getLogger("ultralytics").setLevel(logging.ERROR)
 
-# Function to clear the console screen
 def clear_screen():
     os.system('cls' if platform.system() == 'Windows' else 'clear')
 
-# Clear the screen at the start of the script
-clear_screen()
-
-# Title and About information printed when the script runs
-print("""
-====================================================
-YOLOv8 Real-Time Object Detection using USB Camera
-====================================================
-Author: CHAT-GPT 4o
-Date: 10/5/2024
-
-About:
-This script demonstrates real-time object detection using the YOLOv8 model with a USB camera.
-YOLOv8 is the latest model developed by Ultralytics, known for its high accuracy and performance.
-The script now supports multiple GPUs – you can select which GPU to use if more than one is available.
-
-====================================================
+def ascii_header():
+    print(r"""
+ __     __   ____   _       ____   __     __  ____    ___  
+ \ \   / /  / __ \ | |     / __ \  \ \   / / / __ \  / _ \ 
+  \ \_/ /  | |  | || |    | |  | |  \ \_/ / | |  | || | | |
+   \   /   | |  | || |    | |  | |   \   /  | |  | || | | |
+    | |    | |__| || |____| |__| |    | |   | |__| || |_| |
+    |_|     \____/ |______|\____/     |_|    \____/  \___/ 
+                                                            
+                Real-Time Object Detection                 
+               Powered by YOLOv8 - Ultralytics              
+============================================================
 """)
 
-# Function to download the YOLOv8 model weights if not present
 def download_weights(model_name, url):
     if not os.path.isfile(model_name):
-        print(f"Downloading weights file '{model_name}' from {url}...")
+        print(f"\n>>> Downloading weights '{model_name}'...")
         urllib.request.urlretrieve(url, model_name)
-        print(f"Download complete: '{model_name}'")
+        print(f">>> Download complete: '{model_name}'")
 
-# Download YOLOv8 weights if not present
-model_name = "yolov8x.pt"
-model_url = "https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8x.pt"
-download_weights(model_name, model_url)
+def select_model():
+    print("\n[ SELECT YOLOv8 MODEL ]")
+    print("┌────┬────────────┬────────────────────────────────────────────┐")
+    print("│Key │ Model      │ Description                                │")
+    print("├────┼────────────┼────────────────────────────────────────────┤")
+    print("│ N  │ yolov8n.pt │ Nano    (Fastest, lowest accuracy)         │")
+    print("│ S  │ yolov8s.pt │ Small   (Very fast, lower accuracy)        │")
+    print("│ M  │ yolov8m.pt │ Medium  (Balanced speed/accuracy)          │")
+    print("│ L  │ yolov8l.pt │ Large   (High accuracy, slower)            │")
+    print("│ X  │ yolov8x.pt │ XLarge  (Highest accuracy, slowest)        │")
+    print("└────┴────────────┴────────────────────────────────────────────┘")
+    choice = input("\nSelect model (n/s/m/l/x) [default x]: ").strip().lower()
+    models = {"n": "yolov8n.pt", "s": "yolov8s.pt", "m": "yolov8m.pt", "l": "yolov8l.pt", "x": "yolov8x.pt"}
+    model_key = choice if choice in models else "x"
+    print(f">>> Selected model: {models[model_key]}")
+    return models[model_key]
 
-# Load the YOLOv8 model using the Ultralytics YOLO library
-print(f"Loading YOLOv8 model '{model_name}'...")
-model = YOLO(model_name)
+def select_device():
+    print("\n[ SELECT DEVICE ]")
+    print("┌────┬─────────────────────────────────────────────┬─────────────────────────────────┐")
+    print("│ No │ Device                                      │ Notes                           │")
+    print("├────┼─────────────────────────────────────────────┼─────────────────────────────────┤")
+    devices = []
+    if torch.cuda.is_available():
+        for i in range(torch.cuda.device_count()):
+            name = torch.cuda.get_device_name(i)
+            trimmed_name = name[:39] if len(name) > 39 else name
+            devices.append((f"cuda:{i}", name))
+            print(f"│ {i:<2} │ GPU {trimmed_name:<39} │ Best performance, recommended   │")
+    cpu_index = len(devices)
+    devices.append(("cpu", "CPU"))
+    print(f"│ {cpu_index:<2} │ CPU                                         │ Slower, but universal           │")
+    print("└────┴─────────────────────────────────────────────┴─────────────────────────────────┘")
 
-# Device selection: Check if CUDA is available and allow user to select GPU if more than one is detected.
-if torch.cuda.is_available():
-    num_gpus = torch.cuda.device_count()
-    if num_gpus > 1:
-        print("\nMultiple GPUs detected:")
-        for i in range(num_gpus):
-            print(f"  {i}: {torch.cuda.get_device_name(i)}")
-        gpu_choice = input("Enter the GPU index to use (default 0): ").strip()
-        try:
-            device_index = int(gpu_choice) if gpu_choice != "" else 0
-            if device_index < 0 or device_index >= num_gpus:
-                print("Invalid GPU index. Defaulting to GPU 0.")
-                device_index = 0
-        except ValueError:
-            print("Invalid input. Defaulting to GPU 0.")
-            device_index = 0
-    else:
-        device_index = 0
-    device = f"cuda:{device_index}"
-else:
-    device = "cpu"
-
-# Move model to selected device
-model.to(device)
-print(f"\nUsing device: {device}")
-
-# Display list of available classes in a neat aligned format and get user input
-available_classes = list(model.names.values())  # Convert class names to a list
-print("\nAvailable classes for detection:")
-
-# Format and print the available classes in multiple columns for better readability
-columns = 4
-for i in range(0, len(available_classes), columns):
-    row = ""
-    for j in range(columns):
-        if i + j < len(available_classes):
-            row += f"{i + j + 1:2}. {available_classes[i + j]:<15}"
-    print(row)
-
-user_input = input("\nEnter the numbers of the classes you want to detect (comma-separated) or type 'ALL' for all classes: ").strip()
-
-if user_input.lower() == 'all':
-    selected_classes = available_classes
-else:
     try:
-        class_indices = [int(idx) - 1 for idx in user_input.split(",")]
-        selected_classes = [available_classes[idx] for idx in class_indices if 0 <= idx < len(available_classes)]
-    except ValueError:
-        print("Invalid input. Defaulting to all classes.")
-        selected_classes = available_classes
+        choice = input(f"\nSelect device by number [default 0]: ").strip()
+        index = int(choice) if choice else 0
+        if index < 0 or index >= len(devices):
+            print("Invalid choice. Using default (0).")
+            index = 0
+    except:
+        print("Invalid input. Using default (0).")
+        index = 0
 
-print(f"\nDetecting the following classes: {', '.join(selected_classes)}")
+    print(f">>> Selected device: {devices[index][1]}")
+    return devices[index][0]
 
-# Function to get color for a label
+def select_classes(available_classes):
+    print("\n[ SELECT CLASSES TO DETECT ]")
+    columns = 4
+    for i in range(0, len(available_classes), columns):
+        print('  '.join(f"{i+j+1:2}. {available_classes[i+j]:<15}" for j in range(columns) if i+j < len(available_classes)))
+
+    user_input = input("\nEnter class numbers (comma-separated) or 'ALL' [default ALL]: ").strip()
+    if user_input.lower() == 'all' or user_input == '':
+        return available_classes
+    try:
+        indices = [int(idx) - 1 for idx in user_input.split(",")]
+        selected = [available_classes[idx] for idx in indices if 0 <= idx < len(available_classes)]
+        if not selected:
+            print("No valid classes selected. Using all classes.")
+            return available_classes
+        return selected
+    except:
+        print("Invalid input. Using all classes.")
+        return available_classes
+
 def get_color(label):
-    color_map = {
-        'person': (0, 255, 0),
-        'car': (0, 0, 255),
-        'bicycle': (255, 0, 0),
-    }
-    if label in color_map:
-        return color_map[label]
-    else:
-        hash_value = hash(label) % 0xFFFFFF
-        return (hash_value & 0xFF, (hash_value >> 8) & 0xFF, (hash_value >> 16) & 0xFF)
+    hash_value = hash(label) % 0xFFFFFF
+    return (hash_value & 0xFF, (hash_value >> 8) & 0xFF, (hash_value >> 16) & 0xFF)
 
-# Initialize USB camera (index 0)
-cap = cv2.VideoCapture(0)
+def get_screen_resolution():
+    try:
+        monitor = get_monitors()[0]
+        return monitor.width, monitor.height
+    except:
+        return 1280, 720
 
-if not cap.isOpened():
-    print("Error: Could not open video stream from USB camera.")
-    exit()
+def letterbox_frame(frame, screen_w, screen_h):
+    frame_h, frame_w = frame.shape[:2]
+    scale = min(screen_w / frame_w, screen_h / frame_h)
+    new_w, new_h = int(frame_w * scale), int(frame_h * scale)
+    resized_frame = cv2.resize(frame, (new_w, new_h))
+    canvas = np.zeros((screen_h, screen_w, 3), dtype=np.uint8)
+    x_offset = (screen_w - new_w) // 2
+    y_offset = (screen_h - new_h) // 2
+    canvas[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = resized_frame
+    return canvas
 
-# Get screen resolution dynamically
-monitor = get_monitors()[0]
-screen_width = monitor.width
-screen_height = monitor.height
+def main():
+    clear_screen()
+    ascii_header()
 
-# Create a named window for the display and maximize it
-cv2.namedWindow('YOLOv8 Object Detection', cv2.WINDOW_NORMAL)
-cv2.setWindowProperty('YOLOv8 Object Detection', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    model_file = select_model()
+    model_url = f"https://github.com/ultralytics/assets/releases/download/v0.0.0/{model_file}"
+    download_weights(model_file, model_url)
+    device = select_device()
 
-print("\nStarting object detection... Press 'q' to quit.")
+    print(f"\n>>> Loading model '{model_file}' on device '{device}'...")
+    model = YOLO(model_file)
+    model.to(device)
 
-# Main loop for real-time object detection
-while True:
-    # Capture frame from USB camera
-    ret, frame = cap.read()
-    if not ret:
-        print("Error: Could not read frame from camera.")
-        break
+    available_classes = list(model.names.values())
+    selected_classes = select_classes(available_classes)
+    print(f"\n>>> Detecting classes: {', '.join(selected_classes)}")
 
-    # Convert frame to RGB (YOLO expects RGB format)
-    img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    try:
+        conf_threshold = float(input("\nEnter confidence threshold [default 0.25]: ").strip())
+        if not 0.01 <= conf_threshold <= 1.0:
+            print("Out of range. Using default 0.25.")
+            conf_threshold = 0.25
+    except:
+        conf_threshold = 0.25
 
-    # Perform object detection
-    results = model(img_rgb, verbose=False)
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: Could not open USB camera.")
+        return
 
-    # Extract detection data (labels, confidence scores, and bounding boxes)
-    detections = results[0].boxes
+    cam_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    cam_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(f"\n>>> Camera resolution: {cam_width}x{cam_height}")
 
-    # Render results on the original frame
-    for detection in detections:
-        x1, y1, x2, y2 = map(int, detection.xyxy[0].tolist())
-        label = model.names[int(detection.cls)]
-        confidence = detection.conf[0].item()
+    screen_width, screen_height = get_screen_resolution()
+    print(f">>> Screen resolution: {screen_width}x{screen_height}")
 
-        # Only display selected classes
-        if label not in selected_classes:
-            continue
+    cv2.namedWindow('YOLOv8 Object Detection', cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty('YOLOv8 Object Detection', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-        # Get color for the label
-        color = get_color(label)
+    print("\n>>> Starting detection... Press 'q' or 'Q' to quit.")
 
-        # Draw the bounding box outline
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Error: Frame capture failed.")
+            break
 
-        # Prepare the label with confidence score
-        label_text = f'{label}: {confidence:.2f}'
+        img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = model(img_rgb, verbose=False, conf=conf_threshold)
+        detections = results[0].boxes
 
-        # Determine label size
-        (text_width, text_height), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+        for detection in detections:
+            x1, y1, x2, y2 = map(int, detection.xyxy[0].tolist())
+            label = model.names[int(detection.cls)]
+            confidence = detection.conf[0].item()
+            if label not in selected_classes:
+                continue
+            color = get_color(label)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            label_text = f'{label}: {confidence:.2f}'
+            (text_w, text_h), baseline = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            label_y = y1 - 10 if y1 - 10 > 10 else y1 + 10
+            cv2.rectangle(frame, (x1, label_y - text_h - 5), (x1 + text_w, label_y + baseline), color, -1)
+            cv2.putText(frame, label_text, (x1, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-        # Adjust label background position
-        if y1 - text_height - 10 > 10:
-            label_background_top_left = (x1, y1 - text_height - 10)
-            label_background_bottom_right = (x1 + text_width, y1)
-            label_position = (x1, y1 - 5)
-        else:
-            label_background_top_left = (x1, y1 + text_height + 10 - text_height - 10)
-            label_background_bottom_right = (x1 + text_width, y1 + text_height + 10)
-            label_position = (x1, y1 + text_height + 5)
+        display_frame = letterbox_frame(frame, screen_width, screen_height)
+        cv2.imshow('YOLOv8 Object Detection', display_frame)
 
-        # Draw a filled rectangle behind the text for better visibility
-        cv2.rectangle(frame, label_background_top_left, label_background_bottom_right, color, -1)
+        if cv2.waitKey(1) & 0xFF in [ord('q'), ord('Q')]:
+            break
 
-        # Put the label text on the frame
-        cv2.putText(frame, label_text, label_position, cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cap.release()
+    cv2.destroyAllWindows()
+    print(">>> Detection ended. Goodbye!")
 
-    # Resize the annotated frame to fit the screen dimensions
-    resized_frame = cv2.resize(frame, (screen_width, screen_height))
-
-    # Display the output
-    cv2.imshow('YOLOv8 Object Detection', resized_frame)
-
-    # Press 'q' to exit the loop
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-# Release resources
-cap.release()
-cv2.destroyAllWindows()
-
-print("Object detection ended. Goodbye!")
+if __name__ == "__main__":
+    main()
