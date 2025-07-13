@@ -1,120 +1,108 @@
 #!/bin/bash
 
-PROJECT_DIR="$HOME/YOLOv8-GPU-Webcam"
-VENV_DIR="$PROJECT_DIR/envGPU"
-APP_PY="$PROJECT_DIR/YOLO-GPU-Webcam-App.py"
-HTML_DIR="$PROJECT_DIR/templates"
-HTML_FILE="$HTML_DIR/index.html"
+APP_DIR=~/YOLOv8-GPU-Webcam
+VENV_DIR=~/envGPU
+APP_FILE="$APP_DIR/YOLO-GPU-Webcam-App.py"
+TEMPLATE_DIR="$APP_DIR/templates"
+TEMPLATE_FILE="$TEMPLATE_DIR/index.html"
 
-echo "📁 Creating project folder at $PROJECT_DIR..."
-mkdir -p "$HTML_DIR"
+echo "📁 Creating project at $APP_DIR..."
+mkdir -p "$TEMPLATE_DIR"
 
-echo "🐍 Creating virtual environment..."
+echo "🐍 Creating Python virtual environment at $VENV_DIR..."
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
-
-echo "📦 Installing Python dependencies in venv..."
 pip install --upgrade pip
 pip install flask opencv-python ultralytics
 
-echo "📄 Creating Python application..."
-cat > "$APP_PY" << 'EOF'
-from flask import Flask, render_template, Response, request
+echo "📄 Writing main Python app..."
+cat > "$APP_FILE" << 'EOF'
+from flask import Flask, render_template, Response
 import cv2
 from ultralytics import YOLO
 import threading
 
 app = Flask(__name__)
-model = YOLO("yolov8n.pt")
-device = "cpu"
-class_names = model.names
-lock = threading.Lock()
+
+model_name = "yolov8n.pt"
+device = "cuda" if cv2.cuda.getCudaEnabledDeviceCount() > 0 else "cpu"
+model = YOLO(model_name).to(device)
 video_capture = None
+lock = threading.Lock()
 
 def gen_frames():
-    global video_capture, model, device
+    global video_capture
     try:
-        video_capture = cv2.VideoCapture(0)
+        with lock:
+            if video_capture is not None:
+                video_capture.release()
+            video_capture = cv2.VideoCapture(0)
+            if not video_capture.isOpened():
+                raise RuntimeError("Cannot access webcam.")
+
         while True:
-            success, frame = video_capture.read()
+            with lock:
+                success, frame = video_capture.read()
             if not success:
                 break
-            with lock:
-                results = model.predict(source=frame, device=device, stream=False)
-            for result in results:
-                boxes = result.boxes
-                if boxes is not None:
-                    for box in boxes:
-                        cls = int(box.cls)
-                        conf = float(box.conf)
-                        x1, y1, x2, y2 = map(int, box.xyxy[0])
-                        label = f"{class_names[cls]} {conf:.2f}"
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                        cv2.putText(frame, label, (x1, y1 - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+            results = model(frame)[0]
+            for box in results.boxes:
+                cls_id = int(box.cls[0])
+                conf = float(box.conf[0])
+                label = model.names[cls_id]
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.putText(frame, f"{label} {conf:.2f}", (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
             _, buffer = cv2.imencode('.jpg', frame)
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-    finally:
-        if video_capture:
-            video_capture.release()
+    except Exception as e:
+        print(f"⚠️  Stream error: {e}")
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
-    global model, device, class_names
-    if request.method == 'POST':
-        model_name = request.form.get('model')
-        device = request.form.get('device')
-        try:
-            model = YOLO(model_name)
-            model.to(device)
-            class_names = model.names
-            print(f"🔁 Reloading model: {model_name} on {device}")
-        except Exception as e:
-            print(f"❌ Failed to reload: {e}")
-    return render_template("index.html", model=request.form.get('model', 'yolov8n.pt'),
-                           device=device, class_names=class_names)
+    return render_template("index.html")
 
 @app.route('/video_feed')
 def video_feed():
-    try:
-        return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-    except Exception as e:
-        print(f"⚠️ Stream error: {e}")
-        return f"Error: {e}", 500
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    print(f"🔁 Starting {model_name} on {device}")
+    app.run(host='0.0.0.0', port=5000)
 EOF
 
-echo "🖼️ Creating HTML template..."
-cat > "$HTML_FILE" << 'EOF'
+echo "🖼️ Writing HTML template..."
+cat > "$TEMPLATE_FILE" << 'EOF'
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>YOLOv8 Webcam App</title>
+    <meta charset="UTF-8">
+    <title>YOLOv8 Stream</title>
+    <style>
+        body {
+            margin: 0;
+            background: #000;
+            overflow: hidden;
+        }
+        img {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+        }
+    </style>
 </head>
 <body>
-    <h1>YOLOv8 Webcam App</h1>
-    <form method="POST">
-        <label for="model">Model name:</label>
-        <input type="text" name="model" value="yolov8n.pt">
-        <label for="device">Device:</label>
-        <select name="device">
-            <option value="cpu">CPU</option>
-            <option value="cuda">CUDA</option>
-        </select>
-        <button type="submit">Apply</button>
-    </form>
-    <br>
-    <img src="{{ url_for('video_feed') }}" width="720">
+    <img src="{{ url_for('video_feed') }}" alt="Webcam Stream">
 </body>
 </html>
 EOF
 
-echo "✅ All files created."
-
-echo -e "\n🚀 To run the app:"
-echo "  cd $PROJECT_DIR"
-echo "  source envGPU/bin/activate"
-echo "  python3 YOLO-GPU-Webcam-App.py"
+echo "✅ Setup complete!"
+echo "➡️  To start the app:"
+echo "   source $VENV_DIR/bin/activate"
+echo "   python3 $APP_FILE"
